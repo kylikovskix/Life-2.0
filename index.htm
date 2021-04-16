@@ -1,0 +1,1489 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8" /> 
+  <link rel="stylesheet" href="main.css">
+  <title>Life 2.0</title>
+    <script type="text/javascript">
+    
+      function clone(obj) {
+        return JSON.parse(JSON.stringify(obj));
+      }
+      
+      function getContext(canvas) {
+          if (canvas.getContext)
+            return canvas.getContext('2d');
+            
+          return null;
+      }  
+                   
+      function clearData(data) {
+        for(y=0; y<data.length; y++) {
+          for(x=0; x<data[0].length; x++) {
+            data[y][x] = 0;
+          }
+        }
+      }
+
+      function copyData(src,dst,offsetX = 0,offsetY = 0) {
+        for(srcY=0; srcY<src.length; srcY++) {
+          for(srcX=0; srcX<src[srcY].length; srcX++) {
+            dstX = srcX + offsetX; 
+            dstY = srcY + offsetY;
+               
+            if(dstX >= 0 && dstY >= 0 && dstX < dst[0].length && dstY < dst.length) {
+              dst[dstY][dstX] = src[srcY][srcX];
+            }
+          }
+        }
+      }
+             
+      function createData(nx,ny) {
+        var data = Array(ny);
+        for(y=0; y<ny; y++) {
+          data[y] = Array(nx);
+          for(x=0; x<nx; x++) {
+            data[y][x] = 0;
+          }
+        }   
+        return data;
+      } 
+        
+      function cloneData(data) {
+        var clone = createData(data[0].length, data.length);
+        copyData(data,clone);
+        return clone; 
+      }     
+      
+      function isVisible(element) {
+        return element.style.display != 'none';
+      }                                  
+      
+      function hideElement(element) {
+        element.style.display = "none";
+      }
+        
+      function showElement(element) {
+        element.style.display = "block";
+      }                              
+      
+      function hideOutElement(element,event) {   
+        if(isVisible(element)) {   
+          const rect = element.getBoundingClientRect();
+          if(event.clientX < rect.left || event.clientX > rect.right || 
+              event.clientY < rect.top || event.clientY > rect.bottom)
+                hideElement(element);
+        }
+      }
+
+      // class KvadroEngine 
+      function KvadroEngine(parentId,options) {
+
+        // private properties
+                                     
+        var _options_ = options;
+        var nx = parseInt(_options_.nx);
+        var ny = parseInt(_options_.ny);
+        var A = parseInt(_options_.A); 
+        var B = parseInt(_options_.B); 
+        var _data1_ = createData(nx,ny); 
+        var _data2_ = createData(nx,ny);              
+        var _lib_name_ = 'kvadro-custom-figure-lib';   
+        var _lib_ = JSON.parse(localStorage.getItem(_lib_name_));  
+      
+        // private methods
+        
+
+        // public methods       
+        
+        this.setOptions = function(options) {
+          _options_ = options;
+        }
+        
+        this.update = function() {
+          clearData(_data2_);   
+    
+          for(y=0; y<_data1_.length; y++) {  
+            for(x=0; x<_data1_[y].length; x++) {
+              var c = 0;  
+              for(dy=-1; dy<= 1; dy++) {
+                for(dx=-1; dx<=1; dx++) {
+                  yy = y + dy;
+                  xx = x + dx;
+                  
+                  if(xx < 0 && _options_.looped) {
+                    xx = _data1_[y].length-1;
+                  }
+                  
+                  if(yy < 0 && _options_.looped) {
+                    yy = _data1_.length-1;
+                  }
+
+                  if(xx >= _data1_[y].length && _options_.looped) {
+                    xx = 0;
+                  }
+                  
+                  if(yy >= _data1_.length && _options_.looped) {
+                    yy = 0;
+                  }
+
+                  if(xx >= 0 && xx < _data1_[y].length && yy >= 0 && yy < _data1_.length && (xx != x || yy != y) && _data1_[yy][xx] != 0) {
+                    c++;              
+                  }
+                }
+              } 
+              
+              if(y >= _data2_.length) 
+                continue;
+              else if(x >= _data2_[y].length)
+                continue;
+              
+              if(c==3 && _data1_[y][x]==0) 
+                _data2_[y][x] = 1;
+              else if((c<2 || c > 3) && _data1_[y][x]==1) 
+                _data2_[y][x] = 0;   
+              else
+                _data2_[y][x] = _data1_[y][x];
+            }
+          }    
+
+          copyData(_data2_,_data1_);       
+        }
+        
+        this.draw = function(ctx, data) {
+          if(Array.isArray(data)) {
+            for(y=0; y<data.length; y++) {
+              rows = data[y];
+              for(x=0; x<rows.length; x++) {       
+                ctx.fillStyle = 'rgb(0, 0, 255)';
+                ctx.fillRect(x*(A+B), y*(A+B), A+2*B, A+2*B);
+                                        
+                if(data[y][x] == 0)
+                  ctx.fillStyle = 'rgb(0, 0, 0)';
+                else  
+                  ctx.fillStyle = 'rgb(200, 200, 200)';
+                    
+                ctx.fillRect(x*(A+B)+B, y*(A+B)+B, A, A);
+              }
+            }
+          } else this.draw(ctx,_data1_);
+        }  
+        
+        this.clear = function() {
+          clearData(_data1_);
+        }                             
+        
+        this.getSize = function(data) {
+          var width = 0; 
+          var height = 0; 
+        
+          if(Array.isArray(data)) {
+            width = (data[0].length)*(A+B)+B;
+            height = data.length*(A+B)+B;
+          } else {
+            width = (_data1_[0].length)*(_options_.A+_options_.B)+_options_.B;
+            height = _data1_.length*(_options_.A+_options_.B)+_options_.B;
+          }
+        
+          return {'width': width, 'height': height};
+        }   
+        
+        this.getPosOfCoords = function(coordX,coordY) {
+          var posX = Math.round((coordX-B)/(A+B));
+          var posY = Math.round((coordY-B)/(A+B));
+          return {'posX': posX, 'posY': posY};
+        }  
+        
+        this.inverseCell = function(pos) {
+          if(_data1_[pos.posY][pos.posX] == 0)
+            _data1_[pos.posY][pos.posX] = 1
+          else
+            _data1_[pos.posY][pos.posX] = 0;          
+        }  
+        
+        this.getData = function() {
+          return clone(_data1_);
+        }  
+        
+        this.setData = function(data, pos) { 
+          if(!pos) 
+            pos = {'posX':0,'posY':0};
+            
+          copyData(data,_data1_,pos.posX,pos.posY);
+        }   
+        
+        this.getFigureLibrary = function() {
+          var lib = [];
+          
+          var item1 = {'category':'Стабильные фигуры', 'items':[
+            { 'name':'Пульсар №1', 
+              'data':[[0,0,1,1],[0,0,1,1],[1,1,0,0],[1,1,0,0]] },
+            { 'name':'Пульсар №2',
+              'data':[[0,1,1,1],[1,1,1,0]] },
+            { 'name':'Пульсар №3',
+              'data':[[0,1,0,0],[0,1,0,1],[1,0,1,0],[0,0,1,0]] },
+            { 'name':'Блок', 'data':[[1,1],[1,1]] },
+            { 'name':'Крест', 'data':[[0,1,0],[0,1,0],[0,1,0]] },
+            { 'name':'figura_x3', 'data':[[0,1,0],[1,0,1],[0,1,1]] },
+            { 'name':'meduza', 'data':[[0,1,1,0],[1,0,0,1],[0,1,0,1],[0,0,1,0]] }
+            ]};
+          lib.push(item1);
+          
+          var item2 =  {'category':'Подвижные фигуры', 'items':[
+            { 'name':'Глиссер', 'data':[[0,1,0],[1,0,0],[1,1,1]] },
+            { 'name':'Граната №1', 'data':[[0,1,1],[1,1,0],[0,1,0]] },
+            { 'name':'Граната №2', 'data':[[1,1,1],[1,0,1],[1,0,1]] },
+            { 'name':'Корабль №1',
+              'data':[[0,0,0,1,0],[0,0,0,0,1],[1,0,0,0,1],[0,1,1,1,1]] },
+            { 'name':'Корабль №2',
+              'data':[[0,0,0,0,1,0],[0,0,0,0,0,1],[1,0,0,0,0,1],[0,1,1,1,1,1]] },
+            { 'name':'Корабль №3',
+              'data':[[0,0,0,0,0,1,0],[0,0,0,0,0,0,1],[1,0,0,0,0,0,1],[0,1,1,1,1,1,1]] }
+          ]};
+          lib.push(item2);
+          
+          var item3 =  {'category':'Сложные фигуры', 'items':[
+            { 'name':'Жаба',
+              'data':[
+                [0,0,0,0,0,0,1,1,0,0,0,0],
+                [0,0,0,0,0,0,1,1,0,0,0,0],
+                [0,0,0,0,0,0,0,0,0,0,0,0],
+                [0,0,0,0,1,1,1,1,0,0,0,0],
+                [1,1,0,1,0,0,1,0,1,0,0,0],
+                [1,1,0,1,1,0,0,0,1,0,0,0],
+                [0,0,0,1,0,1,0,0,1,0,1,1],
+                [0,0,0,1,0,0,0,0,1,0,1,1],
+                [0,0,0,0,1,1,1,1,0,0,0,0],
+                [0,0,0,0,0,0,0,0,0,0,0,0],
+                [0,0,0,0,1,1,0,0,0,0,0,0],
+                [0,0,0,0,1,1,0,0,0,0,0,0] ] },
+            { 'name':'Пульсар',
+              'data':[
+                [0,0,1,1,1,0,0,0,1,1,1,0,0],
+                [0,0,0,0,0,0,0,0,0,0,0,0,0],
+                [1,0,0,0,0,1,0,1,0,0,0,0,1],
+                [1,0,0,0,0,1,0,1,0,0,0,0,1],
+                [1,0,0,0,0,1,0,1,0,0,0,0,1],
+                [0,0,1,1,1,0,0,0,1,1,1,0,0],
+                [0,0,0,0,0,0,0,0,0,0,0,0,0],
+                [0,0,1,1,1,0,0,0,1,1,1,0,0],
+                [1,0,0,0,0,1,0,1,0,0,0,0,1],
+                [1,0,0,0,0,1,0,1,0,0,0,0,1],
+                [1,0,0,0,0,1,0,1,0,0,0,0,1],
+                [0,0,0,0,0,0,0,0,0,0,0,0,0],
+                [0,0,1,1,1,0,0,0,1,1,1,0,0] ] }   
+          ]};
+          lib.push(item3);   
+                
+          var item4 =  {'category':'Генераторы фигур', 'items':[
+            { 'name':'Ружье Госпера',
+              'data':[
+                [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+                [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0],
+                [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,1,0,0,0,0,0,0,0,0,0,0,0],
+                [0,0,0,0,0,0,0,0,0,0,0,0,1,1,0,0,0,0,0,0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,1,1],
+                [0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,1,0,0,0,0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,1,1],
+                [1,1,0,0,0,0,0,0,0,0,1,0,0,0,0,0,1,0,0,0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+                [1,1,0,0,0,0,0,0,0,0,1,0,0,0,1,0,1,1,0,0,0,0,1,0,1,0,0,0,0,0,0,0,0,0,0,0],
+                [0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0],
+                [0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+                [0,0,0,0,0,0,0,0,0,0,0,0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0] ] }
+          ]};
+          lib.push(item4);   
+          
+          if(Array.isArray(_lib_)) {  
+            for(var i=0; i < _lib_.length; i++ ) 
+              _lib_[i].isremoved = true;
+            lib.push({'category':'my lib', 'items':_lib_});
+          }
+              
+          return lib;
+        } 
+        
+       function trimData(data) {
+        
+          function getY1() {
+            for (var y1 = 0; y1 < data.length; y1++)  
+              for(var x = 0; x < data[0].length; x++) 
+                if (data[y1][x] != 0) 
+                  return y1;
+                  
+            return data.length-1;              
+          }
+          
+          function getX1() {
+            for(x1 = 0; x1 < data[0].length; x1++) 
+              for(var y = 0; y < data.length; y++) 
+                if (data[y][x1] != 0) 
+                  return x1;
+                  
+            return data[0].length-1;              
+          }
+
+          function getY2() {
+            for(y2 = data.length-1; y2 >= 0; y2--) 
+              for(var x = 0; x < data[0].length; x++) 
+                if (data[y2][x] != 0) 
+                  return y2;
+                  
+            return 0;              
+          }
+
+          function getX2() {
+            for(x2 = data[0].length-1; x2 >= 0; x2--) 
+              for(var y = 0; y < data.length; y++) 
+                if (data[y][x2] != 0) 
+                  return x2;
+                  
+            return 0;              
+          }
+
+          var x1 = getX1(data);
+          var x2 = getX2(data);
+          var y1 = getY1(data);
+          var y2 = getY2(data);  
+                   
+          var result = createData(x2-x1+1,y2-y1+1);
+          for(var y = y1; y <= y2; y++)
+            for(var x = x1; x <= x2; x++)
+              result[y-y1][x-x1] = data[y][x];
+              
+          return result;
+        }
+        
+        this.rotateLeft = function(data) {
+          var result = createData(data.length, data[0].length);
+          for(var y=0; y<data.length; y++) {
+            for(var x=0; x<data[y].length; x++) {
+              result[data[0].length-x-1][y] = data[y][x];
+            }
+          }
+          return result;
+        }
+
+        this.rotateRigth = function(data) {
+          var result = createData(data.length, data[0].length);
+          for(var y=0; y<data.length; y++) {
+            for(var x=0; x<data[y].length; x++) {
+              result[x][data.length-y-1] = data[y][x];
+            }
+          }
+          return result;
+        }
+
+        this.flipVert = function(data) {
+          var result = createData(data[0].length,data.length);
+          for(var y=0; y<data.length; y++) {
+            for(var x=0; x<data[y].length; x++) {
+              result[data.length-y-1][x] = data[y][x];
+            }
+          }
+          return result;
+        }
+
+        this.flipHoriz = function(data) {
+          var result = createData(data[0].length,data.length);
+          for(var y=0; y<data.length; y++) {
+            for(var x=0; x<data[y].length; x++) {
+              result[y][data[0].length - x - 1] = data[y][x];
+            }
+          }
+          return result;
+        }     
+        
+        this.addToLib = function(title) { 
+        
+          if(!Array.isArray(_lib_))  
+            _lib_ = [];  
+            
+          if(!title)  
+            title = 'figure-' + _lib_.length;   
+                 
+          var data = trimData(_data1_);  
+         
+          if(data.length > 1 || data[0].length > 1) {
+            _lib_.push({'name': title,'data':data});   
+            localStorage.setItem(_lib_name_,JSON.stringify(_lib_));          
+          }
+        }            
+
+        this.removeFromLib = function(title) {
+          if(!Array.isArray(_lib_))  
+            _lib_ = [];
+            
+          for(var i=0; i<_lib_.length; i++) {
+            if(_lib_[i].name == title) {
+              _lib_.splice(i,1);
+              localStorage.setItem(_lib_name_,JSON.stringify(_lib_));          
+              break;
+            }
+          }                
+        }
+                
+      } 
+      
+      // class TriangleEngine
+      function TriangleEngine(parentId,options) {          
+
+        // private properties
+
+        var _kx_ = 0.5;
+        var _ky_ = Math.sqrt(3)/2;    
+        var _options_ = options;
+        var nx = parseInt(_options_.nx);
+        var ny = parseInt(_options_.ny);
+        var A = parseInt(_options_.A); 
+        var B = parseInt(_options_.B); 
+        var _data1_ = createData(nx,ny); 
+        var _data2_ = createData(nx,ny);
+        var _lib_name_ = 'triamgle-custom-figure-lib';   
+        var _lib_ = JSON.parse(localStorage.getItem(_lib_name_));  
+        
+     
+        // private methods
+        
+        function _drawTriangle(ctx,x1,y1,x2,y2,x3,y3,fillStyle) {
+        
+          ctx.beginPath();
+          ctx.moveTo(x1, y1);
+          ctx.lineTo(x2, y2);
+          ctx.lineTo(x3, y3);
+          ctx.closePath();
+
+          ctx.fillStyle = fillStyle;
+          ctx.fill();
+        }
+        
+        function _drawCell(ctx,x,y,data) {
+          var fillStyle = 'rgb(0, 0, 255)';
+          
+          if((y + x) % 2 == 0) {
+            x1 = x*(A+B)*_kx_;
+            x2 = x1+A+2*B;
+            x3 = (x1+x2)/2;
+
+            y1 = y*(A+B)*_ky_;
+            y2 = y1;          
+            y3 = y1+(A+2*B)*_ky_;     
+                
+            _drawTriangle(ctx,x1,y1,x2,y2,x3,y3,fillStyle);
+
+            x1 = x*(A+B)*_kx_ + B;
+            x2 = x1+A;
+            x3 = (x1+x2)/2;
+
+            y1 = y*(A+B)*_ky_ + B/2;
+            y2 = y1;          
+            y3 = y1+A*_ky_;     
+                
+            if(data[y][x] == 0)
+              fillStyle = 'rgb(0, 0, 0)';
+            else  
+              fillStyle = 'rgb(200, 200, 200)';
+
+            _drawTriangle(ctx,x1,y1,x2,y2,x3,y3,fillStyle);
+          } else {
+            x1 = x*(A+B)*_kx_;
+            x2 = x1+A+2*B;
+            x3 = (x1+x2)/2;
+
+            y3 = y*(A+B)*_ky_;
+            y2 = y3+(A+2*B)*_ky_;          
+            y1 = y2;     
+                
+            _drawTriangle(ctx,x1,y1,x2,y2,x3,y3,fillStyle);
+
+            x1 = x*(A+B)*_kx_+B;
+            x2 = x1+A;
+            x3 = (x1+x2)/2;
+
+            y3 = y*(A+B)*_ky_ +B;
+            y2 = y3+A*_ky_;          
+            y1 = y2;     
+
+            if(data[y][x] == 0)
+              fillStyle = 'rgb(0, 0, 0)';
+            else  
+              fillStyle = 'rgb(200, 200, 200)';
+
+           _drawTriangle(ctx,x1,y1,x2,y2,x3,y3,fillStyle); 
+          }  
+        }
+
+        function _copyData(src,dst,offsetX = 0,offsetY = 0) {
+          if((offsetX + offsetY) % 2 != 0) offsetX++;      
+          copyData(src,dst,offsetX,offsetY);
+        }
+
+        // public methods       
+        
+        this.setOptions = function(options) {
+          _options_ = clone(options);
+        }
+        
+        this.update = function() {
+          clearData(_data2_);
+             
+          for(y=0; y<_data1_.length; y++) {  
+            for(x=0; x<_data1_[y].length; x++) {
+              var c = 0; 
+              for(dy=-1; dy<= 1; dy++) {
+                for(dx=-2; dx<=2; dx++) {
+                  
+                  if((y + x) % 2 == 0 && dy == 1 && Math.abs(dx) == 2) {
+                    continue;
+                  } else if((y + x) % 2 == 1 && dy == -1 && Math.abs(dx) == 2) {
+                    continue;
+                  }
+                         
+                  yy = y + dy;
+                  xx = x + dx;
+                  
+                  if(xx < 0 && _options_.looped) {
+                    xx = _data1_[y].length-1;
+                  }
+                  
+                  if(yy < 0 && _options_.looped) {
+                    yy = _data1_.length-1;
+                  }
+
+                  if(xx >= _data1_[y].length && _options_.looped) {
+                    xx = 0;
+                  }
+                  
+                  if(yy >= _data1_.length && _options_.looped) {
+                    yy = 0;
+                  }
+                  
+                  if(xx >= 0 && xx < _data1_[0].length && yy >= 0 && yy < _data1_.length && (xx != x || yy != y) && _data1_[yy][xx] != 0) {
+                    c++;              
+                  }
+                  
+                }
+              }
+                  
+              if(c==3 && _data1_[y][x]==0) 
+                _data2_[y][x] = 1;
+              else if((c<2 || c > 3) && _data1_[y][x]==1) 
+                _data2_[y][x] = 0;   
+              else
+                _data2_[y][x] = _data1_[y][x];
+            }
+          }
+          
+          copyData(_data2_,_data1_);       
+        }
+        
+        this.draw = function(ctx, data) {
+          if(Array.isArray(data)) {
+            for(y=0; y<data.length; y++) {
+              rows = data[y];
+              for(x=0; x<rows.length; x++) {
+                _drawCell(ctx,x,y,data);      
+              }
+            }
+          } else this.draw(ctx,_data1_);
+        }                               
+        
+        this.clear = function() {
+          clearData(_data1_);
+        }                             
+
+        this.getSize = function(data) {
+          var width = 0; 
+          var height = 0; 
+        
+          if(Array.isArray(data)) {
+            width = (data[0].length+1)*(A+B)*_kx_+B;
+            height = data.length*(A+B)*_ky_+B;
+          } else {
+            width = (_data1_[0].length+1)*(A+B)*_kx_+B;
+            height = _data1_.length*(A+B)*_ky_+B;
+          }
+        
+          return {'width': width, 'height': height};
+        }   
+        
+        this.getPosOfCoords = function(coordX,coordY) {
+          var posX = Math.round((coordX-B)/(A+B)/_kx_);
+          var posY = Math.round((coordY-B)/(A+B)/_ky_);
+
+          var x = coordX - posX*(A+B)*_kx_+B;
+          var y = coordY - posY*(A+B)*_ky_+B;
+
+          if(posY % 2 == 0) {
+            if(posX <= A/2 && y > 2*x) {
+              posX--;
+            } else if(x > A/2 && y > 2*(A-x)) {
+              posX++;
+            }
+          } else {
+            if(x <= A/2 && y < 2*(A/2-x)) {
+              posX--;
+            } else if(x > A/2 && y < 2*(A/2+x)) {
+              posX++;
+            }
+          }
+
+          return {'posX': posX, 'posY': posY};
+        }  
+        
+        this.inverseCell = function(pos) {
+          if(_data1_[pos.posY][pos.posX] == 0)
+            _data1_[pos.posY][pos.posX] = 1
+          else
+            _data1_[pos.posY][pos.posX] = 0;          
+        }  
+        
+        this.getData = function() {
+          return clone(_data1_);
+        }  
+        
+        this.setData = function(data, pos) { 
+          if(!pos)
+            pos = {'posX':0,'posY':0}; 
+            
+          _copyData(data,_data1_,pos.posX,pos.posY);
+        }   
+        
+        this.getFigureLibrary = function() {
+          var lib = [];
+                    
+          lib.push({
+            'name':'Направленный взрыв',
+            'data':[[1,1],[1,1]]});
+            
+          lib.push({
+            'name':'Блок',
+            'data':[[1,0,1],[1,0,1]]});
+            
+          lib.push({
+            'name':'Клумба',
+            'data':[[0,1,0,1,0],[1,0,0,0,1],[0,0,1,0,0]]});     
+            
+          lib.push({
+            'name':'Пульсар',
+            'data':[[1,1,1,1]]});
+                 
+          if(Array.isArray(_lib_)) {       
+            for(var i=0; i < _lib_.length; i++ ) 
+              _lib_[i].isremoved = true;
+            lib.push({'category':'my lib', 'items':_lib_});
+          }
+        
+          return lib;
+        }
+                             
+        function trimData(data) {
+        
+          function getY1() {
+            for (var y1 = 0; y1 < data.length; y1++)  
+              for(var x = 0; x < data[0].length; x++) 
+                if (data[y1][x] != 0) 
+                  return y1;
+                  
+            return data.length-1;              
+          }
+          
+          function getX1() {
+            for(x1 = 0; x1 < data[0].length; x1++) 
+              for(var y = 0; y < data.length; y++) 
+                if (data[y][x1] != 0) 
+                  return x1;
+                  
+            return data[0].length-1;              
+          }
+
+          function getY2() {
+            for(y2 = data.length-1; y2 >= 0; y2--) 
+              for(var x = 0; x < data[0].length; x++) 
+                if (data[y2][x] != 0) 
+                  return y2;
+                  
+            return 0;              
+          }
+
+          function getX2() {
+            for(x2 = data[0].length-1; x2 >= 0; x2--) 
+              for(var y = 0; y < data.length; y++) 
+                if (data[y][x2] != 0) 
+                  return x2;
+                  
+            return 0;              
+          }
+
+          var x1 = getX1(data);
+          var x2 = getX2(data);
+          var y1 = getY1(data);
+          var y2 = getY2(data);  
+
+          if((x1 + y1) % 2 == 0) {
+          } else if(x1 > y1) {
+            x1--;
+          } else y1--;
+                
+          var result = createData(x2-x1+1,y2-y1+1);
+          for(var y = y1; y <= y2; y++)
+            for(var x = x1; x <= x2; x++)
+              result[y-y1][x-x1] = data[y][x];
+              
+          return result;
+        }
+        
+        this.rotateLeft = function(data) {
+
+          function nw(w,h) {
+            return h + ((w + h - 1) >> 1);
+          }              
+          
+          function nh(y0, w,h) {
+            return 1 + y0 + (h >> 1);
+          }
+                    
+          // вычиляем размер матрицы после поворота
+          var y0 = 2*((data[0].length - 1) >> 2) + 1;             
+          var ww = nw(data[0].length, data.length);
+          var hh = nh(y0,data[0].length, data.length);  
+          var result = createData(ww, hh);   
+          for(var y=0; y<data.length; y++) {
+            for(var x=0; x<data[y].length; x++) {
+              ww = nw(x+1,y+1)-1;
+              hh = y0 + Math.floor((y - x + 1)/2); 
+              result[hh][ww] = data[y][x];
+            }
+          }      
+          return trimData(result);
+        }
+        
+        this.rotateRigth = function(data) {
+          var result = this.flipHoriz(data);
+          result = this.rotateLeft(result);           
+          return this.flipHoriz(result);
+        }        
+
+        this.flipVert = function(data) {
+          var ww = data[0].length;
+          var hh = data.length;
+          var x0 = 0;
+          var y0 = 0;
+          
+          if(hh % 2 == 0) {
+          } else if( ww < hh) {
+            x0++;
+          } else {
+            y0++
+          }
+
+          var result = createData(x0 + ww,y0 + hh);
+          for(var y=0; y<data.length; y++) {
+            for(var x=0; x<data[y].length; x++) {
+              result[y0 + data.length-y-1][x0 + x] = data[y][x];
+            }
+          }
+          return trimData(result);
+        }
+
+        this.flipHoriz = function(data) {
+          var ww = data[0].length;
+          var hh = data.length;
+          var x0 = 0;
+          var y0 = 0;
+          
+          if(ww % 2 != 0) {
+          } else if( ww < hh) {
+            x0++;
+          } else {
+            y0++
+          }
+          
+          var result = createData(x0 + ww, y0 + hh);
+          for(var y=0; y<data.length; y++) {
+            for(var x=0; x<data[y].length; x++) {
+              result[y0+y][x0 + data[0].length - x - 1] = data[y][x];
+            }
+          }
+          return trimData(result);
+        }    
+
+        this.addToLib = function(title) { 
+        
+          if(!Array.isArray(_lib_))  
+            _lib_ = [];  
+            
+          if(!title)  
+            title = 'figure-' + _lib_.length;
+                 
+          var data = trimData(_data1_);  
+         
+          if(data.length > 1 || data[0].length > 1) {
+            _lib_.push({'name': title,'data':data});   
+            localStorage.setItem(_lib_name_,JSON.stringify(_lib_));          
+          }
+        }
+        
+        this.removeFromLib = function(title) {
+          if(!Array.isArray(_lib_))  
+            _lib_ = [];
+            
+          for(var i=0; i<_lib_.length; i++) {
+            if(_lib_[i].name == title) {
+              _lib_.splice(i,1);
+              localStorage.setItem(_lib_name_,JSON.stringify(_lib_));          
+              break;
+            }
+          }                
+        }        
+
+      } 
+                
+      // class FigureLib
+      function FigureLib(tagId) {  
+        var _element_ = document.getElementById(tagId);
+        _element_.innerHTML = '';
+
+        this.clear = function() {
+          _element_.innerHTML = '';
+        }
+
+        this.hidden = function() {
+          return !isVisible(_element_);
+        }
+        
+        this.toogle = function() {
+        if(this.hidden())
+          showElement(_element_);        
+        else  
+          hideElement(_element_);          
+        }
+        
+        this.hide = function() {
+           hideElement(_element_);
+        }        
+        
+        this.show = function() {
+          showElement(_element_);        
+        }          
+        
+        this.append = function(item,title) {
+          var el = document.createElement("div");
+          if(title) {   
+            var p = document.createElement("div");
+            p.innerHTML = title;   
+            el.append(p);
+          }
+          if(item instanceof Array) {
+            for(i=0; i<item.length; i++) {
+              el.append(item[i]);
+            }
+          } else
+            el.append(item);
+            
+          _element_.append(el);
+          el.onmousedown = function(event) {
+            hideElement(_element_);
+          }
+        }  
+        
+        document.addEventListener('mousedown', function(event) {
+          hideOutElement(_element_,event);
+        });
+      } 
+                                                 
+      // class Life
+      function Life(parentId, settings, menu) {          
+                         
+        // private properties                
+        var _timerId_ = 0;
+        var _canvas_ = null;
+        var _ctx_ = null;
+        var _settings_ = clone(settings);
+        var _engine_ = null;     
+        var _editors_ = [];
+         
+        // setMenu
+        function reloadLib(menu) {       
+        
+          function _createMenuItem(m) { 
+            if(!Array.isArray(m)) {   
+              return createMenuItem(m.name,m.data,m.isremoved); 
+            }
+                
+            var items = [];      
+            for(var i=0; i<m.length; i++ ) {                    
+              var item = createMenuItem(m[i].name,m[i].data,m[i].isremoved);
+              items.push(item);
+            }
+            return items;          
+          }
+          
+          var dataset  = _engine_.getFigureLibrary();
+          menu.clear();   
+          for(var i=0; i<dataset.length; i++ ) {  
+            if(dataset[i].category && Array.isArray(dataset[i].items)) {  
+              var items = [];      
+              for(var j=0; j<dataset[i].items.length; j++ ) {                    
+                items.push(_createMenuItem(dataset[i].items[j]));
+              }
+              menu.append(items,dataset[i].category);
+            } else
+              menu.append(_createMenuItem(dataset[i]));
+          }
+        }
+
+
+        //init
+        function init() {
+          
+          this.stop();
+          for(var i=0; i<_editors_.length;i++)
+            _editors_[i].remove();
+          _editors_ = [];
+        
+          if(_settings_.worldVariant == 'kvadro') {
+            _engine_ = new KvadroEngine('kvadro-space', _settings_);
+          } else if(_settings_.worldVariant == 'triangle') {
+            _engine_ = new TriangleEngine('triangle-space',_settings_);
+          }
+          
+          reloadLib(menu);
+
+          if(_canvas_ != null)
+            _canvas_.remove();
+            
+          var size = _engine_.getSize(); 
+          var parentElement = document.getElementById(parentId);  
+          parentElement.innerHTML = '';
+
+          _canvas_ = document.createElement('canvas');
+          _canvas_.width = size.width;
+          _canvas_.height = size.height;
+          parentElement.append(_canvas_);  
+          
+          _ctx_ = getContext(_canvas_);  
+
+          _canvas_.addEventListener('mousedown', function(e) { 
+            const rect = _canvas_.getBoundingClientRect()
+            var x = event.clientX - rect.left;
+            var y = event.clientY - rect.top;     
+            var pos = _engine_.getPosOfCoords(x,y);
+            _engine_.inverseCell(pos);            
+            _engine_.draw(_ctx_);
+          });
+          
+          _engine_.draw(_ctx_);                            
+        }       
+        
+        function createCanvas(data) {     
+          var element = document.createElement('canvas');
+          var size = _engine_.getSize(data);
+          element.width = size.width;
+          element.height = size.height;
+          element.style.margin = '1px';    
+          element.style.background = '#000';
+          _engine_.draw(getContext(element),data);   
+          
+          element.onmousedown = function(event) { 
+            var posX, posY;
+            
+            var clone = element.cloneNode(true);
+            _engine_.draw(getContext(clone),data);
+            
+            clone.style.position = 'absolute';
+            clone.style.zIndex = 1000;
+            document.body.append(clone);
+
+            moveAt(event.pageX, event.pageY);
+
+            function moveAt(pageX, pageY) {
+              posX = pageX - clone.offsetWidth / 2;
+              posY = pageY - clone.offsetHeight / 2;
+              
+              
+              clone.style.left = posX + 'px';
+              clone.style.top = posY + 'px';
+            }
+
+            function onMouseMove(event) {
+              moveAt(event.pageX, event.pageY);    
+            }
+
+            document.addEventListener('mousemove', onMouseMove);
+
+            clone.onmouseup = function() {
+              document.removeEventListener('mousemove', onMouseMove);
+              clone.onmouseup = null;
+              clone.remove();                
+                               
+              var y = posY - _canvas_.getBoundingClientRect().top 
+                - (window.pageYOffset || document.documentElement.scrollTop || document.body.scrollTop || 0);
+              var x = posX - _canvas_.getBoundingClientRect().left 
+                - (window.pageXOffset || document.documentElement.scrollLeft || document.body.scrollLedt || 0);
+              
+              var pos = _engine_.getPosOfCoords(x,y);
+              _engine_.setData(data,pos);
+              _engine_.draw(_ctx_);
+            };
+
+          }; 
+          
+          return element;             
+        }
+        
+        function createMenuItem(caption,data,isremoved) {
+          var element = createCanvas(data);
+          element.title = caption; 
+
+          element.onmousedown = function() {
+            var editor = createDataEditor(caption,data,isremoved);
+            _editors_.push(editor);
+          }
+           
+          element.ondragstart = function() {
+            return false;
+          };
+          
+          return element;            
+        } 
+        
+        function createDataEditor(caption, data, isremoved) {  
+          var _wraper_ = document.createElement('div');
+          var _caption_ = document.createElement('div');
+          var _container_ = document.createElement('div');
+          var _buttons_ = document.createElement('div');
+          var _btn1_ = document.createElement('button');
+          var _btn2_ = document.createElement('button');
+          var _btn3_ = document.createElement('button');
+          var _btn4_ = document.createElement('button');
+          var _btn5_ = document.createElement('button');
+          var _data_ = data;                   
+          var _canvas_ = null;
+          
+          updateCanvas();
+                         
+          function updateCanvas() {
+            if(_canvas_)
+              _canvas_.remove();
+              
+            _canvas_ = createCanvas(_data_);
+            _container_.append(_canvas_);
+          }
+          
+          function closeEditor() {
+            wraper.remove();
+          }          
+          
+          _caption_.innerHTML = "<b>" + caption + "</b>"
+          _caption_.align = 'center'; 
+          _container_.align='center';    
+          _buttons_.align = 'center';
+          _wraper_.align = 'center';
+
+          _btn1_.innerHTML = "↺";
+          _btn2_.innerHTML = "↻";
+          _btn3_.innerHTML = "↔";
+          _btn4_.innerHTML = "↕";
+          _btn5_.innerHTML = "x";
+          
+          
+          _buttons_.append(_btn1_);
+          _buttons_.append(_btn2_);
+          _buttons_.append(_btn3_);
+          _buttons_.append(_btn4_);
+          _buttons_.append(_btn5_);              
+
+          _wraper_.append(_caption_);
+          _wraper_.append(_buttons_);
+          _wraper_.append(_container_);
+          
+          document.body.append(_wraper_);
+
+          _wraper_.style.position = 'absolute';
+          _wraper_.style.zIndex = 1000;                               
+          _wraper_.classList.add('menu');
+
+          _wraper_.style.left = (document.body.offsetWidth - _wraper_.offsetWidth)/2 + 'px';
+          _wraper_.style.top = (document.body.offsetHeight - _wraper_.offsetHeight)/2 + 'px';
+
+          _btn1_.addEventListener('mousedown', function(event) {     
+            _data_ = _engine_.rotateLeft(_data_);
+            updateCanvas();      
+          });
+
+          _btn2_.addEventListener('mousedown', function(event) {
+            _data_ = _engine_.rotateRigth(_data_);
+            updateCanvas();      
+          });
+
+          _btn3_.addEventListener('mousedown', function(event) {
+            _data_ = _engine_.flipHoriz(_data_);
+            updateCanvas();      
+          });
+          
+          _btn4_.addEventListener('mousedown', function(event) {
+            _data_ = _engine_.flipVert(_data_);
+            updateCanvas();      
+          });
+
+          _btn5_.addEventListener('mousedown', function(event) {
+            _wraper_.remove()
+          });            
+          
+          if(isremoved) {
+            var _btn6_ = document.createElement('button');
+            _btn6_.innerHTML = "Удалить из набора";
+            _wraper_.append(_btn6_);
+                                                           
+            _btn6_.addEventListener('mousedown', function(event) {
+              _engine_.removeFromLib(caption);
+              _wraper_.remove()
+              reloadLib(menu);
+            });
+          }    
+
+          _caption_.onselectstart = () => false;
+          _caption_.onmousedown = function(event) { 
+            var posX, posY;
+            
+            moveAt(event.pageX, event.pageY);
+
+            function moveAt(pageX, pageY) {
+              posX = pageX - _caption_.offsetWidth / 2;
+              posY = pageY - _caption_.offsetHeight / 2;
+              
+              
+              _wraper_.style.left = posX + 'px';
+              _wraper_.style.top = posY + 'px';
+            }
+
+            function onMouseMove(event) {
+              moveAt(event.pageX, event.pageY);    
+            }
+
+            document.addEventListener('mousemove', onMouseMove);
+
+            _caption_.onmouseup = function() {
+              document.removeEventListener('mousemove', onMouseMove);
+            };
+
+          };
+          
+          return _wraper_; 
+        }
+         
+        // getSettings         
+        this.getSettings = function() {                 
+          return clone(_settings_);
+        }
+        
+        // setSettings         
+        this.setSettings = function(settings) {
+          var rebuild = false;
+          _settings_.looped = settings.looped;
+          _settings_.lifeTime = settings.lifeTime;
+          _settings_.socialMinCount = settings.socialMinCount;
+          _settings_.socialMaxCount = settings.socialMaxCount;
+          _settings_.reproductMinTime = settings.reproductMinTime;
+          _settings_.reproductMaxTime = settings.reproductMaxTime;
+          _settings_.reproductMinCount = settings.reproductMinCount;
+          _settings_.reproductMaxCount = settings.reproductMaxCount;
+          
+          if(_settings_.timeInterval != settings.timeInterval) {
+            _settings_.timeInterval = settings.timeInterval;
+            if(_timerId_ != 0) {
+              this.stop();      
+              this.start();
+            }
+          }
+                        
+                                                         
+          if(_settings_.worldVariant != settings.worldVariant) {
+            _settings_.worldVariant = settings.worldVariant;
+            rebuild = true;
+          }
+          
+          if(_settings_.nx != settings.nx || _settings_.ny != settings.ny) {
+            _settings_.nx = settings.nx;
+            _settings_.ny = settings.ny;
+            rebuild = true;
+          }
+
+          if(_settings_.A != settings.A || _settings_.B != settings.B) {
+            _settings_.A = settings.A;
+            _settings_.B = settings.B;   
+            rebuild = true;
+          }
+
+          if(rebuild) {
+            init();
+          }
+        }
+
+        // start
+        this.start = function() {
+        
+          if(_timerId_ != 0)
+            this.stop();  
+          
+          
+          _timerId_ = setInterval(function() {
+            _engine_.update();  
+            _engine_.draw(_ctx_);
+          }, _settings_.timeInterval);        
+        }
+                
+        // stop
+        this.stop = function() {   
+          clearInterval(_timerId_);
+          _timerId_ = 0;
+        }
+         
+        // clear
+        this.clear = function() {
+          this.stop(); 
+          _engine_.clear(); 
+          _engine_.draw(_ctx_);
+        }
+                           
+        // saveToFile
+        this.saveToFile = function() {
+          var blob = new Blob([life.serialize()], {type: "text/plain"});
+          var link = document.createElement("a");
+          link.setAttribute("href", URL.createObjectURL(blob));
+          link.setAttribute("download", "life_" + (new Date()).toISOString() + ".txt");
+          link.click(); 
+        }
+                             
+        // loadFromFile
+        this.loadFromFile = function(object) {
+          var file = object.files[0]
+          var reader = new FileReader()
+          reader.onload = function() {
+            life.unserialize(reader.result);
+          }
+          reader.readAsText(file) 
+          object.value = '';
+        }  
+        
+        this.serialize = function() { 
+          return JSON.stringify({'settings':_settings_,'data':_engine_.getData()}); 
+        }
+        
+        this.unserialize = function(s) {  
+          var m = JSON.parse(s); 
+          this.setSettings(m.settings);
+          _engine_.setData(m.data); 
+          _engine_.draw(_ctx_);
+        }   
+        
+        this.addFigure = function() {
+          _engine_.addToLib();
+          reloadLib(menu);
+        }
+          
+        // init instance      
+        init();
+      }  
+
+      // class Settings 
+      function Settings(bindOptions) {   
+        var _elWrapper_ = document.getElementById(bindOptions.wraperId);
+        var _elTimeInterval_ = document.getElementById(bindOptions.timeIntervalId);
+        var _elLoopedWorld_ = document.getElementById(bindOptions.loopedWorldId);
+        var _elClassicVariant_ = document.getElementById(bindOptions.classicVariantId);
+        var _elAdvancedSettings_ = document.getElementById(bindOptions.advancedSettingsId);
+        var _elWorldVariant_ = document.getElementById(bindOptions.worldVariantId);
+        var _elLifeTime_ = document.getElementById(bindOptions.lifeTimeId);
+        var _elSocialMinCount_ = document.getElementById(bindOptions.socialMinCountId);
+        var _elSocialMaxCount_ = document.getElementById(bindOptions.socialMaxCountId);
+        var _elReproductMinTime_ = document.getElementById(bindOptions.reproductMinTimeId);
+        var _elReproductMaxTime_ = document.getElementById(bindOptions.reproductMaxTimeId);
+        var _elReproductMinCount_ = document.getElementById(bindOptions.reproductMinCountId);
+        var _elReproductMaxCount_ = document.getElementById(bindOptions.reproductMaxCountId);
+        var _elRowCount_ = document.getElementById(bindOptions.rowCountId);
+        var _elColCount_ = document.getElementById(bindOptions.colCountId);
+        var _elCellSize_ = document.getElementById(bindOptions.cellSizeId);
+        var _elSepSize_ = document.getElementById(bindOptions.sepSizeId);
+        
+        _elClassicVariant_.addEventListener('change', classicVariantChanged);
+        
+        function classicVariantChanged() {
+          if(_elClassicVariant_.checked) {           
+            _elAdvancedSettings_.style.display = 'none';            
+          } else {   
+            _elAdvancedSettings_.style.display = 'block';
+          }            
+        }                  
+        
+        function getClassicValues() {
+          var settings = {};
+          settings.timeInterval = 500;
+          settings.looped = true;
+          settings.worldVariant = 'kvadro';
+          settings.lifeTime = 1;
+          settings.socialMinCount = 2;
+          settings.socialMaxCount = 3;
+          settings.reproductMinTime = 1;
+          settings.reproductMaxTime = 1;
+          settings.reproductMinCount = 3;
+          settings.reproductMaxCount = 3;
+          settings.nx = 50;
+          settings.ny = 50;
+          settings.A = 10;
+          settings.B = 2;
+          return settings;
+        }
+         
+        function setValues(settings) {
+          _elTimeInterval_.value = settings.timeInterval;
+          _elLoopedWorld_.checked = settings.looped;
+          _elWorldVariant_.value = settings.worldVariant;
+          _elLifeTime_.value = settings.lifeTime;
+          _elSocialMinCount_.value = settings.socialMinCount;
+          _elSocialMaxCount_.value = settings.socialMaxCount;
+          _elReproductMinTime_.value = settings.reproductMinTime;
+          _elReproductMaxTime_.value = settings.reproductMaxTime;
+          _elReproductMinCount_.value = settings.reproductMinCount;
+          _elReproductMaxCount_.value = settings.reproductMaxCount;
+          _elRowCount_.value = settings.ny;
+          _elColCount_.value = settings.nx;
+          _elCellSize_.value = settings.A;
+          _elSepSize_.value = settings.B;
+
+          var _settings = getClassicValues();
+            
+          _elClassicVariant_.checked = 
+            _settings.worldVariant == settings.worldVariant && 
+            _settings.lifeTime == settings.lifeTime && 
+            _settings.socialMinCount == settings.socialMinCount &&
+            _settings.socialMaxCount == settings.socialMaxCount &&
+            _settings.reproductMinTime == settings.reproductMinTime &&
+            _settings.reproductMaxTime == settings.reproductMaxTime &&
+            _settings.reproductMinCount == settings.reproductMinCount &&
+            _settings.reproductMaxCount == settings.reproductMaxCount;
+            
+          classicVariantChanged()                      
+        }
+          
+          
+        function getValues() {
+          var settings = getClassicValues();
+          
+          settings.timeInterval = parseInt(_elTimeInterval_.value);
+          settings.looped = _elLoopedWorld_.checked;
+          settings.ny = parseInt(_elRowCount_.value);
+          settings.nx = parseInt(_elColCount_.value);
+          settings.A = parseInt(_elCellSize_.value);
+          settings.B = parseInt(_elSepSize_.value);
+          
+          if(!_elClassicVariant_.checked) {
+            var selIdx = _elWorldVariant_.options.selectedIndex;
+            settings.worldVariant = _elWorldVariant_.options[selIdx].value;
+            settings.lifeTime = parseInt(_elLifeTime_.value);
+            settings.socialMinCount = parseInt(_elSocialMinCount_.value);
+            settings.socialMaxCount = parseInt(_elSocialMaxCount_.value);
+            settings.reproductMinTime = parseInt(_elReproductMinTime_.value);
+            settings.reproductMaxTime = parseInt(_elReproductMaxTime_.value);
+            settings.reproductMinCount = parseInt(_elReproductMinCount_.value);
+            settings.reproductMaxCount = parseInt(_elReproductMaxCount_.value);   
+          }
+          
+          return settings;
+        }    
+        
+        this.defaultSettings = function() {
+          var settings = JSON.parse(localStorage.getItem("settings"))
+          return settings ? settings : getClassicValues();
+        }
+        
+        this.show = function() {            
+          setValues(life.getSettings())
+          showElement(_elWrapper_);
+        }
+        
+        this.hide = function() {
+          hideElement(_elWrapper_);
+        }          
+        
+        this.apply = function() {
+          var settings =getValues();
+          localStorage.setItem("settings",JSON.stringify(settings))   
+          life.setSettings(settings);
+          hideElement(_elWrapper_);
+        }
+      }
+
+      function InitWorld() {                                              
+        settings = new Settings({
+          'wraperId':'settings-menu',
+          'timeIntervalId':'time-interval',
+          'loopedWorldId':'looped-world',
+          'classicVariantId':'classic-variant',
+          'advancedSettingsId':'advanced-settings',
+          'worldVariantId':'world-variants',
+          'lifeTimeId':'life-time',
+          'socialMinCountId':'social-min-count',
+          'socialMaxCountId':'social-max-count',
+          'reproductMinTimeId':'reproduct-min-time',
+          'reproductMaxTimeId':'reproduct-max-time',
+          'reproductMinCountId':'reproduct-min-count',
+          'reproductMaxCountId':'reproduct-max-count',
+          'rowCountId':'row-count',
+          'colCountId':'column-count',
+          'cellSizeId':'cell-size',
+          'sepSizeId':'separator-size'
+        });
+        settings.hide();
+          
+        
+        menu = new FigureLib('figure-lib-menu')
+        menu.hide();
+                  
+        life = new Life('world', settings.defaultSettings(), menu);    
+      }  
+         
+    </script></head>
+<body onload="InitWorld()">
+<h2>Игра "Жизнь" 2.0</h2>
+<div>
+  <button onclick="settings.show()">Настройки</button>
+  <button onclick="menu.show()">Вставить из набора</button>
+  <button onclick="life.addFigure()">Добавить в набор</button>
+  <button onclick="life.start()">Старт</button>
+  <button onclick="life.stop()">Стоп</button>
+  <button onclick="life.clear()">Очистить</button>
+  <button onclick="life.saveToFile()">Сохранить</button> 
+  <button>
+    <label for="file">Открыть</label>
+  </button>   
+  <input type="file" id="file" style="display: none" onchange="life.loadFromFile(this)">    
+</div>
+<div id='figure-lib-menu' class='menu'></div>
+<div id='settings-menu' align='right' class='menu'>
+  <div>Интервал времени (милисек): <input id='time-interval' value='1000' size='4'></div>
+  <div>Закольцованный мир: <input type='checkbox' id='looped-world'></div>
+  <div>Классческий вариант: <input type='checkbox' id='classic-variant'></div>
+  <div id='advanced-settings'>
+    <hr>
+    <select id='world-variants'>
+        <option value="kvadro">Квадраты</option>
+        <option value="triangle" selected="selected">Треугольники</option>
+    </select>
+    <div>Продолжительноть жизни: <input id='life-time' size='2' readonly></div>
+    <div>Социальный баланс: <input id='social-min-count' size='2' readonly> - <input id='social-max-count' size='2' readonly></div>
+    <div>Репродуктивный период: <input id='reproduct-min-time' size='2' readonly> - <input id='reproduct-max-time' size='2' readonly></div>
+    <div>Репродуктивный баланс: <input id='reproduct-min-count' size='2' readonly> - <input id='reproduct-max-count' size='2' readonly></div>
+  </div>  
+  <hr>
+  <div>Размер поля: <input id='column-count' size='2'> x <input id='row-count' size='2'></div>
+  <div>Размер ячейки: <input id='cell-size' size='2'></div>
+  <div>Расстояние между ячейками: <input id='separator-size' size='2'></div>  
+  <hr>
+  <div align='center'>
+    <button onclick='settings.apply()'>Ok</button>
+    <button onclick='settings.hide()'>Cancel</button>
+  </div>
+</div>
+
+<div id="world"></div>
+</body>
+</html>
