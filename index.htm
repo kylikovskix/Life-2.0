@@ -632,6 +632,10 @@
           return {'posX': posX, 'posY': posY};
         }  
         
+        this.switchCell = function(pos, isFilled = true) {
+          _data1_[pos.posY][pos.posX] = isFilled ? 1 : 0;
+        }
+
         this.inverseCell = function(pos) {
           if(_data1_[pos.posY][pos.posX] == 0)
             _data1_[pos.posY][pos.posX] = 1
@@ -902,7 +906,8 @@
         var _ctx_ = null;
         var _settings_ = clone(settings);
         var _engine_ = null;     
-        var _editors_ = [];
+        var _editors_ = [];                 
+        var _mousetarget_ = null;
          
         // setMenu
         function reloadLib(menu) {       
@@ -965,18 +970,25 @@
           
           _ctx_ = getContext(_canvas_);  
 
-          _canvas_.addEventListener('mousedown', function(e) { 
-            const rect = _canvas_.getBoundingClientRect()
-            var x = event.clientX - rect.left;
-            var y = event.clientY - rect.top;     
-            var pos = _engine_.getPosOfCoords(x,y);
-            _engine_.inverseCell(pos);            
-            _engine_.draw(_ctx_);
+          _canvas_.addEventListener('mousedown', function(e) {
+            if(_mousetarget_ == null && event.target == _canvas_) { 
+              const rect = _canvas_.getBoundingClientRect()
+              var x = event.clientX - rect.left;
+              var y = event.clientY - rect.top;     
+              var pos = _engine_.getPosOfCoords(x,y);
+              _engine_.inverseCell(pos);            
+              _engine_.draw(_ctx_);
+              _mousetarget_ = _canvas_; 
+            }
+          });
+
+          _canvas_.addEventListener('mouseup', function(e) {
+            _mousetarget_ = null; 
           });
 
           _canvas_.addEventListener('mousemove', function(e) { 
-            // mouse left button must be pressed
-            if (e.buttons !== 1)
+
+            if (_mousetarget_ !== _canvas_)
               return;
 
             // fill all cells under mouse, when user draws line with mouse pressed
@@ -1159,14 +1171,18 @@
           }    
 
           _caption_.onselectstart = () => false;
-          _caption_.onmousedown = function(event) { 
-            var posX, posY;
+          _caption_.onmousedown = function(event) {        
+
+          const rect = _caption_.getBoundingClientRect();
+            var deltaX = event.pageX - rect.left; 
+            var deltaY = event.pageY -  rect.top;
+            var posX, posY;    
             
             moveAt(event.pageX, event.pageY);
 
             function moveAt(pageX, pageY) {
-              posX = pageX - _caption_.offsetWidth / 2;
-              posY = pageY - _caption_.offsetHeight / 2;
+              posX = pageX - deltaX;
+              posY = pageY - deltaY;
               
               
               _wraper_.style.left = posX + 'px';
